@@ -1,5 +1,5 @@
 // tree.c — Tree object serialization and construction
-
+#include "index.h"
 #include "tree.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -99,7 +99,7 @@ int tree_serialize(const Tree *tree, void **data_out, size_t *len_out) {
 
 // ─── PHASE 2 IMPLEMENTATION (STUB) ──────────────────────────────────────────
 
-int tree_from_index(struct Index *index, ObjectID *out_tree) {
+int tree_from_index(ObjectID *id_out) {
     // Phase 2A: minimal stub implementation
     (void)index;
     (void)out_tree;
