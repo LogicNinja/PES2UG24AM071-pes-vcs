@@ -129,9 +129,47 @@ int tree_serialize(const Tree *tree, void **data_out, size_t *len_out) {
 //   - object_write    : save that binary buffer to the store as OBJ_TREE
 //
 // Returns 0 on success, -1 on error.
-int tree_from_index(ObjectID *id_out) {
-    // TODO: Implement recursive tree building
-    // (See Lab Appendix for logical steps)
-    (void)id_out;
-    return -1;
+int tree_from_index(Index *index, ObjectID *out_tree) {
+    if (!index || index->count == 0) return -1;
+
+    // allocate tree entries
+    TreeEntry *entries = malloc(sizeof(TreeEntry) * index->count);
+    if (!entries) return -1;
+
+    for (size_t i = 0; i < index->count; i++) {
+        entries[i].mode = index->entries[i].mode;
+        entries[i].id = index->entries[i].id;
+        entries[i].name = strdup(index->entries[i].path);
+    }
+
+    // serialize tree
+    size_t total_size = 0;
+    for (size_t i = 0; i < index->count; i++) {
+        total_size += strlen(entries[i].name) + 32;
+    }
+
+    char *buffer = malloc(total_size);
+    if (!buffer) return -1;
+
+    size_t offset = 0;
+    for (size_t i = 0; i < index->count; i++) {
+        offset += sprintf(buffer + offset, "%o %s ", entries[i].mode, entries[i].name);
+        memcpy(buffer + offset, entries[i].id.hash, HASH_SIZE);
+        offset += HASH_SIZE;
+    }
+
+    // write tree object
+    if (object_write(OBJ_TREE, buffer, offset, out_tree) != 0) {
+        free(buffer);
+        return -1;
+    }
+
+    free(buffer);
+
+    for (size_t i = 0; i < index->count; i++) {
+        free(entries[i].name);
+    }
+    free(entries);
+
+    return 0;
 }
