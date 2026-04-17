@@ -66,13 +66,13 @@ int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out
     char path[512];
     object_path(id_out, path, sizeof(path));
     char dir[512];
-    strncpy(dir, path, sizeof(dir));
+    snprintf(dir, sizeof(dir), "%s", path);
     char *slash = strrchr(dir, '/');
     if (slash) {
         *slash = '\0';
         mkdir(dir, 0755);
     }
-    char temp_path[512];
+    char temp_path[520];
     snprintf(temp_path, sizeof(temp_path), "%s.tmp", path);
     int fd = open(temp_path, O_CREAT | O_WRONLY | O_TRUNC, 0644);
     if (fd < 0) {

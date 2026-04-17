@@ -144,36 +144,30 @@ int index_load(Index *index) {
 }
 
 int index_save(const Index *index) {
-    char temp_file[] = ".pes/index.tmp";
-
-    FILE *fp = fopen(temp_file, "w");
-    if (!fp) return -1;
-
-    Index sorted = *index;
-    qsort(sorted.entries, sorted.count, sizeof(IndexEntry), compare_entries);
-
-    for (int i = 0; i < sorted.count; i++) {
-        char hex[HASH_HEX_SIZE + 1];
-        hash_to_hex(&sorted.entries[i].hash, hex);
-
-        fprintf(fp, "%o %s %lu %u %s\n",
-                sorted.entries[i].mode,
-                hex,
-                sorted.entries[i].mtime_sec,
-                sorted.entries[i].size,
-                sorted.entries[i].path);
+    FILE *fp = fopen(INDEX_FILE, "w");
+    if (!fp) {
+        perror("fopen");
+        return -1;
     }
 
-    fflush(fp);
-    fsync(fileno(fp));
+    for (int i = 0; i < index->count; i++) {
+        char hex[HASH_HEX_SIZE + 1];
+        hash_to_hex(&index->entries[i].hash, hex);
+
+        if (fprintf(fp, "%o %s %lu %u %s\n",
+                    index->entries[i].mode,
+                    hex,
+                    index->entries[i].mtime_sec,
+                    index->entries[i].size,
+                    index->entries[i].path) < 0) {
+            fclose(fp);
+            return -1;
+        }
+    }
+
     fclose(fp);
-
-    if (rename(temp_file, INDEX_FILE) != 0)
-        return -1;
-
     return 0;
 }
-
 // add file to index (not required for Phase 2 but included anyway)
 int index_add(Index *index, const char *path) {
     struct stat st;
