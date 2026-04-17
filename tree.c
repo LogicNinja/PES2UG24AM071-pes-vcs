@@ -125,12 +125,31 @@ int tree_from_index(ObjectID *id_out) {
             // directory detected
             char dirname[256];
 
-            strncpy(dirname, index.entries[i].path, slash - index.entries[i].path);
+            strncpy(dirname, index.entries[i].path,
+                    slash - index.entries[i].path);
             dirname[slash - index.entries[i].path] = '\0';
 
-            printf("Found directory: %s\n", dirname);
+            // check if directory already exists
+            int exists = 0;
+            for (int j = 0; j < root.count; j++) {
+                if (strcmp(root.entries[j].name, dirname) == 0) {
+                    exists = 1;
+                    break;
+                }
+            }
+
+            if (!exists) {
+                TreeEntry *entry = &root.entries[root.count++];
+
+                entry->mode = 040000; // directory
+                strcpy(entry->name, dirname);
+
+                // temporary fake hash
+                memset(entry->hash.hash, 0, HASH_SIZE);
+            }
         }
     }
+
     void *data;
     size_t len;
 
