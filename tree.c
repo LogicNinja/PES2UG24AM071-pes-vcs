@@ -1,6 +1,8 @@
 // tree.c — Tree object serialization and construction
 #include "index.h"
 #include "tree.h"
+#include "pes.h"
+int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out);
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -100,9 +102,41 @@ int tree_serialize(const Tree *tree, void **data_out, size_t *len_out) {
 // ─── PHASE 2 IMPLEMENTATION (STUB) ──────────────────────────────────────────
 
 int tree_from_index(ObjectID *id_out) {
-    // Phase 2A: minimal stub implementation
-    (void)index;
-    (void)out_tree;
+    Index index;
 
+    if (index_load(&index) != 0) {
+        return -1;
+    }
+
+    Tree root;
+    root.count = 0;
+
+    for (int i = 0; i < index.count; i++) {
+        char *slash = strchr(index.entries[i].path, '/');
+
+        if (!slash) {
+            // normal file (no directory)
+            TreeEntry *entry = &root.entries[root.count++];
+
+            entry->mode = index.entries[i].mode;
+            entry->hash = index.entries[i].hash;
+            strcpy(entry->name, index.entries[i].path);
+        } else {
+            // directory detected
+            char dirname[256];
+
+            strncpy(dirname, index.entries[i].path, slash - index.entries[i].path);
+            dirname[slash - index.entries[i].path] = '\0';
+
+            printf("Found directory: %s\n", dirname);
+        }
+    }
+    void *data;
+    size_t len;
+
+    tree_serialize(&root, &data, &len);
+    object_write(OBJ_TREE, data, len, id_out);
+
+    free(data);
     return 0;
 }
