@@ -117,12 +117,18 @@ int index_load(Index *index) {
     FILE *fp = fopen(INDEX_FILE, "r");
     if (!fp) return 0; // empty index is fine
 
-    while (index->count < MAX_INDEX_ENTRIES) {
+    while (1) {
+        if (index->count >= MAX_INDEX_ENTRIES)
+            break;
+
         IndexEntry *e = &index->entries[index->count];
         char hex[HASH_HEX_SIZE + 1];
 
-        if (fscanf(fp, "%o %64s %lu %u %[^\n]\n",
-                   &e->mode, hex, &e->mtime_sec, &e->size, e->path) != 5)
+        int ret = fscanf(fp, "%o %64s %lu %u %511[^\n]\n",
+                         &e->mode, hex, &e->mtime_sec,
+                         &e->size, e->path);
+
+        if (ret == EOF || ret != 5)
             break;
 
         if (hex_to_hash(hex, &e->hash) != 0) {
@@ -137,7 +143,6 @@ int index_load(Index *index) {
     return 0;
 }
 
-// save index atomically
 int index_save(const Index *index) {
     char temp_file[] = ".pes/index.tmp";
 
@@ -171,24 +176,44 @@ int index_save(const Index *index) {
 
 // add file to index (not required for Phase 2 but included anyway)
 int index_add(Index *index, const char *path) {
+    struct stat st;
+    if (stat(path, &st) != 0) {
+        perror("stat");
+        return -1;
+    }
+
+    // Only allow regular files
+    if (!S_ISREG(st.st_mode)) {
+        fprintf(stderr, "error: not a regular file: %s\n", path);
+        return -1;
+    }
+
     FILE *fp = fopen(path, "rb");
-    if (!fp) return -1;
-
-    fseek(fp, 0, SEEK_END);
-    long size = ftell(fp);
-    rewind(fp);
-
-    void *buffer = malloc(size);
-    if (!buffer) {
-        fclose(fp);
+    if (!fp) {
+        perror("fopen");
         return -1;
     }
 
-    if (fread(buffer, 1, size, fp) != (size_t)size) {
-        fclose(fp);
-        free(buffer);
-        return -1;
+    size_t size = st.st_size;
+
+    void *buffer = NULL;
+
+    if (size > 0) {
+        buffer = malloc(size);
+        if (!buffer) {
+            fclose(fp);
+            return -1;
+        }
+
+        size_t read_bytes = fread(buffer, 1, size, fp);
+        if (read_bytes != size) {
+            fprintf(stderr, "error: failed to read file\n");
+            fclose(fp);
+            free(buffer);
+            return -1;
+        }
     }
+
     fclose(fp);
 
     ObjectID id;
@@ -199,12 +224,14 @@ int index_add(Index *index, const char *path) {
 
     free(buffer);
 
-    struct stat st;
-    if (stat(path, &st) != 0) return -1;
-
+    // Check if already exists
     IndexEntry *e = index_find(index, path);
 
     if (!e) {
+        if (index->count >= MAX_INDEX_ENTRIES) {
+            fprintf(stderr, "error: index full\n");
+            return -1;
+        }
         e = &index->entries[index->count++];
     }
 
@@ -212,7 +239,8 @@ int index_add(Index *index, const char *path) {
     e->hash = id;
     e->mtime_sec = st.st_mtime;
     e->size = st.st_size;
-    strcpy(e->path, path);
+    strncpy(e->path, path, sizeof(e->path) - 1);
+    e->path[sizeof(e->path) - 1] = '\0';
 
     return index_save(index);
 }
