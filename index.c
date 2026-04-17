@@ -7,7 +7,6 @@
 #include <unistd.h>
 #include <dirent.h>
 
-// ─── PROVIDED FUNCTIONS (unchanged) ───────────────────────────
 int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out);
 
 IndexEntry* index_find(Index *index, const char *path) {
@@ -105,17 +104,15 @@ int index_status(const Index *index) {
 
 // ─── IMPLEMENTATION STARTS HERE ───────────────────────────────
 
-// helper for sorting
 static int compare_entries(const void *a, const void *b) {
     return strcmp(((IndexEntry*)a)->path, ((IndexEntry*)b)->path);
 }
 
-// load index from file
 int index_load(Index *index) {
     index->count = 0;
 
     FILE *fp = fopen(INDEX_FILE, "r");
-    if (!fp) return 0; // empty index is fine
+    if (!fp) return 0; 
 
     while (1) {
         if (index->count >= MAX_INDEX_ENTRIES)
@@ -168,7 +165,6 @@ int index_save(const Index *index) {
     fclose(fp);
     return 0;
 }
-// add file to index (not required for Phase 2 but included anyway)
 int index_add(Index *index, const char *path) {
     struct stat st;
     if (stat(path, &st) != 0) {
@@ -176,7 +172,6 @@ int index_add(Index *index, const char *path) {
         return -1;
     }
 
-    // Only allow regular files
     if (!S_ISREG(st.st_mode)) {
         fprintf(stderr, "error: not a regular file: %s\n", path);
         return -1;
@@ -218,7 +213,6 @@ int index_add(Index *index, const char *path) {
 
     free(buffer);
 
-    // Check if already exists
     IndexEntry *e = index_find(index, path);
 
     if (!e) {
